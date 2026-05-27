@@ -16,6 +16,9 @@ export type Team = {
   name: string;
   logo_url: string | null;
   color: string | null;
+  is_champion: boolean;
+  champion_title: string | null;
+  champion_count: number | null;
   created_at: string;
 };
 

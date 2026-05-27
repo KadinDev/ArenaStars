@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addPlayerToOrganization, assignPlayerToTeam, createMatch, createOrganization, createPlayer, createTeam, deleteMatch, fetchAllPlayers, fetchMatches, fetchOrganizations, fetchPlayerStats, fetchPlayers, fetchRanking, fetchTeamPlayers, fetchTeams, queryKeys, recordPlayerEvent, saveMatchWithStats, updateCompetitionPlayerProfile, updatePlayer, updatePlayerPhoto, type PlayerEventType } from "@/services/queries";
+import { addPlayerToOrganization, assignPlayerToTeam, createMatch, createOrganization, createPlayer, createTeam, deleteMatch, deleteTeam, fetchAllPlayers, fetchMatches, fetchOrganizations, fetchPlayerStats, fetchPlayers, fetchRanking, fetchTeamPlayers, fetchTeams, queryKeys, recordPlayerEvent, removePlayerFromOrganization, saveMatchWithStats, setCompetitionChampion, updateCompetitionPlayerProfile, updatePlayer, updatePlayerPhoto, type PlayerEventType } from "@/services/queries";
 import { useOrganizationStore } from "@/stores/organizationStore";
 import type { CompetitionPlayerProfileInput, MatchWithStatsInput, NewMatchInput, NewPlayerInput, TrainingDay } from "@/types/database";
 
@@ -72,6 +72,39 @@ export function useCreateTeam() {
   });
 }
 
+export function useDeleteTeam() {
+  const queryClient = useQueryClient();
+  const organizationId = useOrganizationStore((state) => state.selectedOrganization?.id);
+  return useMutation({
+    mutationFn: (teamId: string) => deleteTeam(organizationId!, teamId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.teams(organizationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.teamPlayers(organizationId) });
+      queryClient.invalidateQueries({ queryKey: ["matches"] });
+      queryClient.invalidateQueries({ queryKey: ["player"] });
+    },
+    onMutate: () => {
+      if (!organizationId) throw new Error("Selecione uma competicao antes de excluir time.");
+    }
+  });
+}
+
+export function useSetCompetitionChampion() {
+  const queryClient = useQueryClient();
+  const organizationId = useOrganizationStore((state) => state.selectedOrganization?.id);
+  return useMutation({
+    mutationFn: (input: { teamId: string; title: string; count: number | null }) =>
+      setCompetitionChampion({ organizationId: organizationId!, ...input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.teams(organizationId) });
+      queryClient.invalidateQueries({ queryKey: ["player"] });
+    },
+    onMutate: () => {
+      if (!organizationId) throw new Error("Selecione uma competicao antes de definir campeao.");
+    }
+  });
+}
+
 export function useTeamPlayers() {
   const organizationId = useOrganizationStore((state) => state.selectedOrganization?.id);
   return useQuery({
@@ -93,6 +126,23 @@ export function useAssignPlayerToTeam() {
     },
     onMutate: () => {
       if (!organizationId) throw new Error("Selecione uma competicao antes de vincular times.");
+    }
+  });
+}
+
+export function useRemovePlayerFromOrganization() {
+  const queryClient = useQueryClient();
+  const organizationId = useOrganizationStore((state) => state.selectedOrganization?.id);
+  return useMutation({
+    mutationFn: (playerId: string) => removePlayerFromOrganization(organizationId!, playerId),
+    onSuccess: (_, playerId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.players(organizationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.teamPlayers(organizationId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.player(organizationId, playerId) });
+      queryClient.invalidateQueries({ queryKey: ["ranking"] });
+    },
+    onMutate: () => {
+      if (!organizationId) throw new Error("Selecione uma competicao antes de remover jogador.");
     }
   });
 }

@@ -2,16 +2,17 @@ import { Link } from "expo-router";
 import { Image } from "expo-image";
 import { Pressable, Text, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Pencil, UserRound } from "lucide-react-native";
+import { Pencil, Trash2, UserRound } from "lucide-react-native";
 import { colors } from "@/constants/theme";
 import type { Player } from "@/types/database";
 
 type PlayerCardProps = {
   player: Player;
   onEdit?: () => void;
+  onRemove?: () => void;
 };
 
-export function PlayerCard({ player, onEdit }: PlayerCardProps) {
+export function PlayerCard({ player, onEdit, onRemove }: PlayerCardProps) {
   return (
     <Animated.View
       entering={FadeInDown.duration(300)}
@@ -56,6 +57,14 @@ export function PlayerCard({ player, onEdit }: PlayerCardProps) {
           className="ml-3 h-11 w-11 items-center justify-center rounded-lg bg-cardSecondary"
         >
           <Pencil color={colors.text} size={18} />
+        </Pressable>
+      ) : null}
+      {onRemove ? (
+        <Pressable
+          onPress={onRemove}
+          className="ml-2 h-11 w-11 items-center justify-center rounded-lg bg-cardSecondary"
+        >
+          <Trash2 color={colors.textSecondary} size={18} />
         </Pressable>
       ) : null}
     </Animated.View>

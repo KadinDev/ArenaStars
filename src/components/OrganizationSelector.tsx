@@ -20,7 +20,13 @@ import {
 import { uploadCompetitionLogo } from "@/services/storage";
 import { useOrganizationStore } from "@/stores/organizationStore";
 
-export function OrganizationSelector() {
+type OrganizationSelectorProps = {
+  showChangeButton?: boolean;
+};
+
+export function OrganizationSelector({
+  showChangeButton = false,
+}: OrganizationSelectorProps) {
   const organizations = useOrganizations();
   const { isAdmin } = useAdminAuth();
   const createOrganization = useCreateOrganization();
@@ -43,8 +49,7 @@ export function OrganizationSelector() {
   async function pickLogo() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
+      allowsEditing: false,
       quality: 0.8,
     });
 
@@ -53,7 +58,7 @@ export function OrganizationSelector() {
 
   async function submit() {
     if (!name.trim()) {
-      Alert.alert("Nome obrigatorio", "Informe o nome da competicao.");
+      Alert.alert("Nome obrigatorio", "Informe o nome da competição.");
       return;
     }
 
@@ -65,7 +70,7 @@ export function OrganizationSelector() {
       setModalVisible(false);
     } catch (error) {
       Alert.alert(
-        "Nao foi possivel criar",
+        "Não foi possivel criar",
         error instanceof Error ? error.message : "Tente novamente.",
       );
     }
@@ -75,7 +80,7 @@ export function OrganizationSelector() {
     <View className="mb-4 rounded-lg bg-card p-4">
       <View className="mb-3 flex-row items-center">
         <Trophy color={colors.primary} size={20} />
-        <Text className="ml-2 text-lg font-black text-text">Competicao</Text>
+        <Text className="ml-2 text-lg font-black text-text">Competição</Text>
       </View>
 
       <Pressable
@@ -98,13 +103,24 @@ export function OrganizationSelector() {
         </View>
         <View className="ml-3 flex-1">
           <Text className="font-black text-text" numberOfLines={1}>
-            {selectedOrganization?.name ?? "Selecionar competicao"}
+            {selectedOrganization?.name ?? "Selecionar competição"}
           </Text>
           <Text className="mt-1 text-xs text-textSecondary">
             Toque para trocar
           </Text>
         </View>
       </Pressable>
+
+      {showChangeButton ? (
+        <Pressable
+          onPress={() => setModalVisible(true)}
+          className="mt-3 rounded-lg border border-cardSecondary py-4"
+        >
+          <Text className="text-center font-black text-textSecondary">
+            Trocar competição
+          </Text>
+        </Pressable>
+      ) : null}
 
       <Modal
         transparent
@@ -115,7 +131,7 @@ export function OrganizationSelector() {
         <View className="flex-1 justify-end bg-black/70">
           <View className="max-h-[85%] rounded-t-lg bg-background p-5">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-2xl font-black text-text">Competicões</Text>
+              <Text className="text-2xl font-black text-text">Competições</Text>
               <Pressable
                 onPress={() => setModalVisible(false)}
                 className="h-11 w-11 items-center justify-center rounded-lg bg-card"
@@ -164,12 +180,12 @@ export function OrganizationSelector() {
             {isAdmin ? (
               <View className="mt-4 rounded-lg bg-card p-4">
                 <Text className="mb-3 text-lg font-black text-text">
-                  Nova competicao
+                  Nova competição
                 </Text>
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  placeholder="nome da competicao"
+                  placeholder="nome da competição"
                   placeholderTextColor="#6B7280"
                   className="rounded-lg bg-cardSecondary p-4 text-text"
                 />
@@ -189,7 +205,7 @@ export function OrganizationSelector() {
                   <Text className="text-center font-black text-background">
                     {createOrganization.isPending
                       ? "Criando..."
-                      : "Criar competicao"}
+                      : "Criar competição"}
                   </Text>
                 </Pressable>
               </View>

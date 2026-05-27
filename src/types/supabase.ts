@@ -23,7 +23,7 @@ export type Database = {
       };
       teams: {
         Row: Team;
-        Insert: { organization_id: string; name: string; logo_url?: string | null; color?: string | null };
+        Insert: { organization_id: string; name: string; logo_url?: string | null; color?: string | null; is_champion?: boolean; champion_title?: string | null; champion_count?: number | null };
         Update: Partial<Omit<Team, "id" | "organization_id" | "created_at">>;
         Relationships: [];
       };

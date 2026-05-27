@@ -11,7 +11,7 @@ import {
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Search, UserPlus, UsersRound, X } from "lucide-react-native";
+import { Search, Trash2, UserPlus, UsersRound, X } from "lucide-react-native";
 import { Header } from "@/components/Header";
 import { PlayerCard } from "@/components/PlayerCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -24,19 +24,21 @@ import {
   useAllPlayers,
   useAssignPlayerToTeam,
   useCreateTeam,
+  useDeleteTeam,
   usePlayers,
+  useRemovePlayerFromOrganization,
   useTeamPlayers,
   useTeams,
   useUpdatePlayer,
   useUpdatePlayerPhoto,
 } from "@/hooks/useCachedQueries";
-import { uploadPlayerPhoto } from "@/services/storage";
+import { uploadPlayerPhoto, uploadTeamLogo } from "@/services/storage";
 import type { DominantFoot, Player } from "@/types/database";
 
 const footOptions: Array<{ value: DominantFoot; label: string }> = [
   { value: "direito", label: "Direito" },
   { value: "esquerdo", label: "Esquerdo" },
-  { value: "ambos", label: "Ambos" }
+  { value: "ambos", label: "Ambos" },
 ];
 
 export default function JogadoresScreen() {
@@ -48,6 +50,8 @@ export default function JogadoresScreen() {
   const addPlayerToOrganization = useAddPlayerToOrganization();
   const assignPlayerToTeam = useAssignPlayerToTeam();
   const createTeam = useCreateTeam();
+  const deleteTeam = useDeleteTeam();
+  const removePlayerFromCompetition = useRemovePlayerFromOrganization();
   const createPlayer = useCreatePlayer();
   const updatePlayer = useUpdatePlayer();
   const updatePhoto = useUpdatePlayerPhoto();
@@ -63,10 +67,16 @@ export default function JogadoresScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
-  const [addExistingTeamId, setAddExistingTeamId] = useState<string | null>(null);
+  const [newTeamLogoUri, setNewTeamLogoUri] = useState<string | null>(null);
+  const [addExistingTeamId, setAddExistingTeamId] = useState<string | null>(
+    null,
+  );
 
   const teamByPlayerId = useMemo(
-    () => new Map((teamPlayers.data ?? []).map((item) => [item.player_id, item.team_id])),
+    () =>
+      new Map(
+        (teamPlayers.data ?? []).map((item) => [item.player_id, item.team_id]),
+      ),
     [teamPlayers.data],
   );
 
@@ -82,18 +92,29 @@ export default function JogadoresScreen() {
 
   const availablePlayers = useMemo(() => {
     const currentIds = new Set((players.data ?? []).map((player) => player.id));
-    return (allPlayers.data ?? []).filter((player) => !currentIds.has(player.id));
+    return (allPlayers.data ?? []).filter(
+      (player) => !currentIds.has(player.id),
+    );
   }, [allPlayers.data, players.data]);
 
   async function pickPhoto() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
+      allowsEditing: false,
       quality: 0.8,
     });
 
     if (!result.canceled) setPhotoUri(result.assets[0]?.uri ?? null);
+  }
+
+  async function pickTeamLogo() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) setNewTeamLogoUri(result.assets[0]?.uri ?? null);
   }
 
   function resetForm() {
@@ -131,11 +152,62 @@ export default function JogadoresScreen() {
     }
 
     try {
-      await createTeam.mutateAsync({ name: newTeamName });
+      const logoUrl = newTeamLogoUri
+        ? await uploadTeamLogo(newTeamLogoUri)
+        : null;
+      await createTeam.mutateAsync({ name: newTeamName, logo_url: logoUrl });
       setNewTeamName("");
+      setNewTeamLogoUri(null);
     } catch (error) {
-      Alert.alert("Nao foi possivel criar time", error instanceof Error ? error.message : "Tente novamente.");
+      Alert.alert(
+        "Nao foi possivel criar time",
+        error instanceof Error ? error.message : "Tente novamente.",
+      );
     }
+  }
+
+  function confirmDeleteTeam(teamId: string, teamName: string) {
+    Alert.alert("Excluir time", `Remover ${teamName} desta competicao?`, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteTeam.mutateAsync(teamId);
+          } catch (error) {
+            Alert.alert(
+              "Nao foi possivel excluir",
+              error instanceof Error ? error.message : "Tente novamente.",
+            );
+          }
+        },
+      },
+    ]);
+  }
+
+  function confirmRemovePlayer(player: Player) {
+    Alert.alert(
+      "Remover da competicao",
+      `${player.name} nao aparecera mais nesta competicao.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Remover",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await removePlayerFromCompetition.mutateAsync(player.id);
+            } catch (error) {
+              Alert.alert(
+                "Nao foi possivel remover",
+                error instanceof Error ? error.message : "Tente novamente.",
+              );
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function submitPlayer() {
@@ -163,7 +235,10 @@ export default function JogadoresScreen() {
             ...(publicUrl ? { photo_url: publicUrl } : {}),
           },
         });
-        await assignPlayerToTeam.mutateAsync({ playerId: editingPlayerId, teamId });
+        await assignPlayerToTeam.mutateAsync({
+          playerId: editingPlayerId,
+          teamId,
+        });
       } else {
         const player = await createPlayer.mutateAsync({
           name: name.trim(),
@@ -210,12 +285,21 @@ export default function JogadoresScreen() {
         },
       });
       if (addExistingTeamId) {
-        await assignPlayerToTeam.mutateAsync({ playerId: player.id, teamId: addExistingTeamId });
+        await assignPlayerToTeam.mutateAsync({
+          playerId: player.id,
+          teamId: addExistingTeamId,
+        });
       }
       setAddExistingVisible(false);
-      Alert.alert("Jogador adicionado", `${player.name} agora faz parte desta competicao.`);
+      Alert.alert(
+        "Jogador adicionado",
+        `${player.name} agora faz parte desta competicao.`,
+      );
     } catch (error) {
-      Alert.alert("Nao foi possivel adicionar", error instanceof Error ? error.message : "Tente novamente.");
+      Alert.alert(
+        "Nao foi possivel adicionar",
+        error instanceof Error ? error.message : "Tente novamente.",
+      );
     }
   }
 
@@ -227,7 +311,7 @@ export default function JogadoresScreen() {
       >
         <Header
           title="Jogadores"
-          subtitle="Cadastro, perfil e estatisticas individuais."
+          subtitle="Cadastro, perfil e estatísticas individuais."
           right={
             isAdmin ? (
               <View className="flex-row gap-2">
@@ -261,7 +345,9 @@ export default function JogadoresScreen() {
 
         {isAdmin ? (
           <View className="mb-4 rounded-lg bg-card p-4">
-            <Text className="mb-3 text-lg font-black text-text">Times da competicao</Text>
+            <Text className="mb-3 text-lg font-black text-text">
+              Times da competicao
+            </Text>
             <View className="mb-3 flex-row gap-2">
               <TextInput
                 value={newTeamName}
@@ -270,14 +356,62 @@ export default function JogadoresScreen() {
                 placeholderTextColor="#6B7280"
                 className="flex-1 rounded-lg bg-cardSecondary p-4 text-text"
               />
-              <Pressable onPress={submitTeam} disabled={createTeam.isPending} className="rounded-lg bg-primary px-4 justify-center">
-                <Text className="font-black text-background">{createTeam.isPending ? "..." : "Criar"}</Text>
+              <Pressable
+                onPress={submitTeam}
+                disabled={createTeam.isPending}
+                className="rounded-lg bg-primary px-4 justify-center"
+              >
+                <Text className="font-black text-background">
+                  {createTeam.isPending ? "..." : "Criar"}
+                </Text>
               </Pressable>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            <Pressable
+              onPress={pickTeamLogo}
+              className="mb-3 rounded-lg border border-cardSecondary py-4"
+            >
+              <Text className="text-center font-bold text-textSecondary">
+                {newTeamLogoUri
+                  ? "Logo do time selecionada"
+                  : "Selecionar logo do time"}
+              </Text>
+            </Pressable>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}
+            >
               {(teams.data ?? []).map((team) => (
-                <View key={team.id} className="rounded-lg bg-cardSecondary px-4 py-3">
-                  <Text className="font-bold text-text">{team.name}</Text>
+                <View
+                  key={team.id}
+                  className="w-32 rounded-lg bg-cardSecondary p-3"
+                >
+                  <View className="mb-2 h-14 w-14 self-center overflow-hidden rounded-lg bg-card">
+                    {team.logo_url ? (
+                      <Image
+                        source={{ uri: team.logo_url }}
+                        style={{ width: 56, height: 56 }}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                      />
+                    ) : (
+                      <View className="h-full items-center justify-center">
+                        <UsersRound color={colors.muted} size={20} />
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    className="text-center font-bold text-text"
+                    numberOfLines={1}
+                  >
+                    {team.name}
+                  </Text>
+                  <Pressable
+                    onPress={() => confirmDeleteTeam(team.id, team.name)}
+                    className="mt-2 h-9 items-center justify-center rounded-lg bg-card"
+                  >
+                    <Trash2 color={colors.textSecondary} size={16} />
+                  </Pressable>
                 </View>
               ))}
             </ScrollView>
@@ -325,26 +459,51 @@ export default function JogadoresScreen() {
                   return (
                     <Pressable
                       key={option.value}
-                      onPress={() => setDominantFoot(active ? null : option.value)}
+                      onPress={() =>
+                        setDominantFoot(active ? null : option.value)
+                      }
                       className={`flex-1 rounded-lg py-3 ${active ? "bg-primary" : "bg-cardSecondary"}`}
                     >
-                      <Text className={`text-center text-xs font-black ${active ? "text-background" : "text-textSecondary"}`}>
+                      <Text
+                        className={`text-center text-xs font-black ${active ? "text-background" : "text-textSecondary"}`}
+                      >
                         {option.label}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
-              <Text className="text-xs font-black uppercase tracking-widest text-textSecondary">Time nesta competicao</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                <Pressable onPress={() => setTeamId(null)} className={`rounded-lg px-4 py-3 ${!teamId ? "bg-primary" : "bg-cardSecondary"}`}>
-                  <Text className={`font-bold ${!teamId ? "text-background" : "text-textSecondary"}`}>Sem time</Text>
+              <Text className="text-xs font-black uppercase tracking-widest text-textSecondary">
+                Time nesta competicao
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}
+              >
+                <Pressable
+                  onPress={() => setTeamId(null)}
+                  className={`rounded-lg px-4 py-3 ${!teamId ? "bg-primary" : "bg-cardSecondary"}`}
+                >
+                  <Text
+                    className={`font-bold ${!teamId ? "text-background" : "text-textSecondary"}`}
+                  >
+                    Sem time
+                  </Text>
                 </Pressable>
                 {(teams.data ?? []).map((team) => {
                   const active = team.id === teamId;
                   return (
-                    <Pressable key={team.id} onPress={() => setTeamId(team.id)} className={`rounded-lg px-4 py-3 ${active ? "bg-primary" : "bg-cardSecondary"}`}>
-                      <Text className={`font-bold ${active ? "text-background" : "text-textSecondary"}`}>{team.name}</Text>
+                    <Pressable
+                      key={team.id}
+                      onPress={() => setTeamId(team.id)}
+                      className={`rounded-lg px-4 py-3 ${active ? "bg-primary" : "bg-cardSecondary"}`}
+                    >
+                      <Text
+                        className={`font-bold ${active ? "text-background" : "text-textSecondary"}`}
+                      >
+                        {team.name}
+                      </Text>
                     </Pressable>
                   );
                 })}
@@ -403,6 +562,7 @@ export default function JogadoresScreen() {
             key={player.id}
             player={player}
             onEdit={isAdmin ? () => startEdit(player) : undefined}
+            onRemove={isAdmin ? () => confirmRemovePlayer(player) : undefined}
           />
         ))}
         {!players.isLoading && !filteredPlayers.length ? (
@@ -416,35 +576,75 @@ export default function JogadoresScreen() {
           />
         ) : null}
 
-        <Modal transparent visible={addExistingVisible} animationType="fade" onRequestClose={() => setAddExistingVisible(false)}>
+        <Modal
+          transparent
+          visible={addExistingVisible}
+          animationType="fade"
+          onRequestClose={() => setAddExistingVisible(false)}
+        >
           <View className="flex-1 justify-end bg-black/70">
             <View className="max-h-[80%] rounded-t-lg bg-background p-5">
               <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-2xl font-black text-text">Adicionar jogador</Text>
-                <Pressable onPress={() => setAddExistingVisible(false)} className="h-11 w-11 items-center justify-center rounded-lg bg-card">
+                <Text className="text-2xl font-black text-text">
+                  Adicionar jogador
+                </Text>
+                <Pressable
+                  onPress={() => setAddExistingVisible(false)}
+                  className="h-11 w-11 items-center justify-center rounded-lg bg-card"
+                >
                   <X color={colors.text} size={20} />
                 </Pressable>
               </View>
               <ScrollView>
-                <Text className="mb-2 text-xs font-black uppercase tracking-widest text-textSecondary">Time ao adicionar</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>
-                  <Pressable onPress={() => setAddExistingTeamId(null)} className={`rounded-lg px-4 py-3 ${!addExistingTeamId ? "bg-primary" : "bg-card"}`}>
-                    <Text className={`font-bold ${!addExistingTeamId ? "text-background" : "text-textSecondary"}`}>Sem time</Text>
+                <Text className="mb-2 text-xs font-black uppercase tracking-widest text-textSecondary">
+                  Time ao adicionar
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingBottom: 12 }}
+                >
+                  <Pressable
+                    onPress={() => setAddExistingTeamId(null)}
+                    className={`rounded-lg px-4 py-3 ${!addExistingTeamId ? "bg-primary" : "bg-card"}`}
+                  >
+                    <Text
+                      className={`font-bold ${!addExistingTeamId ? "text-background" : "text-textSecondary"}`}
+                    >
+                      Sem time
+                    </Text>
                   </Pressable>
                   {(teams.data ?? []).map((team) => {
                     const active = team.id === addExistingTeamId;
                     return (
-                      <Pressable key={team.id} onPress={() => setAddExistingTeamId(team.id)} className={`rounded-lg px-4 py-3 ${active ? "bg-primary" : "bg-card"}`}>
-                        <Text className={`font-bold ${active ? "text-background" : "text-textSecondary"}`}>{team.name}</Text>
+                      <Pressable
+                        key={team.id}
+                        onPress={() => setAddExistingTeamId(team.id)}
+                        className={`rounded-lg px-4 py-3 ${active ? "bg-primary" : "bg-card"}`}
+                      >
+                        <Text
+                          className={`font-bold ${active ? "text-background" : "text-textSecondary"}`}
+                        >
+                          {team.name}
+                        </Text>
                       </Pressable>
                     );
                   })}
                 </ScrollView>
                 {availablePlayers.map((player) => (
-                  <Pressable key={player.id} onPress={() => addExistingPlayer(player)} className="mb-2 flex-row items-center rounded-lg bg-card p-3">
+                  <Pressable
+                    key={player.id}
+                    onPress={() => addExistingPlayer(player)}
+                    className="mb-2 flex-row items-center rounded-lg bg-card p-3"
+                  >
                     <View className="h-12 w-12 overflow-hidden rounded-lg bg-cardSecondary">
                       {player.photo_url ? (
-                        <Image source={{ uri: player.photo_url }} style={{ width: 48, height: 48 }} contentFit="cover" cachePolicy="memory-disk" />
+                        <Image
+                          source={{ uri: player.photo_url }}
+                          style={{ width: 48, height: 48 }}
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                        />
                       ) : (
                         <View className="h-full items-center justify-center">
                           <UsersRound color={colors.muted} size={20} />
@@ -452,12 +652,25 @@ export default function JogadoresScreen() {
                       )}
                     </View>
                     <View className="ml-3 flex-1">
-                      <Text className="font-bold text-text" numberOfLines={1}>{player.name}</Text>
-                      <Text className="mt-1 text-xs text-textSecondary" numberOfLines={1}>{player.nickname || "Sem apelido"} - {player.position || "Jogador"}</Text>
+                      <Text className="font-bold text-text" numberOfLines={1}>
+                        {player.name}
+                      </Text>
+                      <Text
+                        className="mt-1 text-xs text-textSecondary"
+                        numberOfLines={1}
+                      >
+                        {player.nickname || "Sem apelido"} -{" "}
+                        {player.position || "Jogador"}
+                      </Text>
                     </View>
                   </Pressable>
                 ))}
-                {!availablePlayers.length ? <EmptyState title="Sem jogadores disponiveis" message="Todos os jogadores ja estao nesta competicao." /> : null}
+                {!availablePlayers.length ? (
+                  <EmptyState
+                    title="Sem jogadores disponiveis"
+                    message="Todos os jogadores ja estao nesta competicao."
+                  />
+                ) : null}
               </ScrollView>
             </View>
           </View>

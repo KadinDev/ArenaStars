@@ -53,7 +53,7 @@ export async function fetchTeams(organizationId: string): Promise<Team[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("teams")
-    .select("id,organization_id,name,logo_url,color,created_at")
+    .select("id,organization_id,name,logo_url,color,is_champion,champion_title,champion_count,created_at")
     .eq("organization_id", organizationId)
     .order("name", { ascending: true });
 
@@ -71,11 +71,49 @@ export async function createTeam(organizationId: string, input: { name: string; 
       color: input.color ?? null,
       logo_url: input.logo_url ?? null
     })
-    .select("id,organization_id,name,logo_url,color,created_at")
+    .select("id,organization_id,name,logo_url,color,is_champion,champion_title,champion_count,created_at")
     .single();
 
   if (error) throw error;
   return data;
+}
+
+export async function deleteTeam(organizationId: string, teamId: string) {
+  const client = requireSupabase();
+  const { error } = await client
+    .from("teams")
+    .delete()
+    .eq("organization_id", organizationId)
+    .eq("id", teamId);
+
+  if (error) throw error;
+}
+
+export async function setCompetitionChampion(input: {
+  organizationId: string;
+  teamId: string;
+  title: string;
+  count: number | null;
+}) {
+  const client = requireSupabase();
+  const reset = await client
+    .from("teams")
+    .update({ is_champion: false, champion_title: null, champion_count: null })
+    .eq("organization_id", input.organizationId);
+
+  if (reset.error) throw reset.error;
+
+  const { error } = await client
+    .from("teams")
+    .update({
+      is_champion: true,
+      champion_title: input.title.trim(),
+      champion_count: input.count
+    })
+    .eq("organization_id", input.organizationId)
+    .eq("id", input.teamId);
+
+  if (error) throw error;
 }
 
 export async function fetchTeamPlayers(organizationId: string): Promise<TeamPlayer[]> {
@@ -106,6 +144,25 @@ export async function assignPlayerToTeam(organizationId: string, playerId: strin
     .upsert({ organization_id: organizationId, player_id: playerId, team_id: teamId }, { onConflict: "organization_id,player_id" });
 
   if (error) throw error;
+}
+
+export async function removePlayerFromOrganization(organizationId: string, playerId: string) {
+  const client = requireSupabase();
+  const teamLink = await client
+    .from("team_players")
+    .delete()
+    .eq("organization_id", organizationId)
+    .eq("player_id", playerId);
+
+  if (teamLink.error) throw teamLink.error;
+
+  const membership = await client
+    .from("competition_players")
+    .delete()
+    .eq("organization_id", organizationId)
+    .eq("player_id", playerId);
+
+  if (membership.error) throw membership.error;
 }
 
 export async function fetchPlayers(organizationId: string): Promise<Player[]> {
@@ -281,8 +338,8 @@ export async function fetchPlayerStats(organizationId: string, playerId: string)
   );
 
   const { data: teamAssignment, error: teamError } = await supabase
-    .from("team_players")
-    .select("teams(id,organization_id,name,logo_url,color,created_at)")
+      .from("team_players")
+    .select("teams(id,organization_id,name,logo_url,color,is_champion,champion_title,champion_count,created_at)")
     .eq("organization_id", organizationId)
     .eq("player_id", playerId)
     .maybeSingle();

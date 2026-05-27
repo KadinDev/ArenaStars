@@ -7,7 +7,7 @@ const weekdays: Record<TrainingDay, number> = {
   quarta: 3,
   quinta: 4,
   sexta: 5,
-  sabado: 6
+  sabado: 6,
 };
 
 const labels: Record<TrainingDay, string> = {
@@ -17,30 +17,30 @@ const labels: Record<TrainingDay, string> = {
   quarta: "Quarta",
   quinta: "Quinta",
   sexta: "Sexta",
-  sabado: "Sabado"
+  sabado: "Sabado",
 };
 
 export function formatShortDate(value: string | Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
-    month: "short"
+    month: "short",
   }).format(new Date(value));
 }
 
 export function formatFullDate(value: string | Date) {
   return new Intl.DateTimeFormat("pt-BR", {
-    weekday: "short",
+    //weekday: "short", // Dia da semana
     day: "2-digit",
     month: "short",
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   }).format(new Date(value));
 }
 
 export function formatTime(value: string | Date) {
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   }).format(new Date(value));
 }
 
@@ -52,7 +52,7 @@ export function nextTrainings(limit = 2) {
     const date = new Date(today);
     date.setDate(today.getDate() + offset);
     const day = (Object.keys(weekdays) as TrainingDay[]).find(
-      (key) => weekdays[key] === date.getDay()
+      (key) => weekdays[key] === date.getDay(),
     );
 
     if (day) {
@@ -70,6 +70,8 @@ export function dayLabel(day: TrainingDay | "geral") {
 
 export function dayFromDate(value: string | Date): TrainingDay {
   const weekday = new Date(value).getDay();
-  const day = (Object.keys(weekdays) as TrainingDay[]).find((key) => weekdays[key] === weekday);
+  const day = (Object.keys(weekdays) as TrainingDay[]).find(
+    (key) => weekdays[key] === weekday,
+  );
   return day ?? "segunda";
 }

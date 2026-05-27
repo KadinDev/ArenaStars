@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
+import * as Sharing from "expo-sharing";
+import { captureRef } from "react-native-view-shot";
 import {
   Alert,
   Pressable,
@@ -10,8 +12,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Shield } from "lucide-react-native";
+import { ArrowLeft, Share2, Shield, Trophy } from "lucide-react-native";
 import { MatchCard } from "@/components/MatchCard";
+import { SharePlayerCard } from "@/components/SharePlayerCard";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ListSkeleton } from "@/components/Skeletons";
@@ -21,7 +24,9 @@ import {
   useMatches,
   usePlayerStats,
   useRecordPlayerEvent,
+  useTeams,
 } from "@/hooks/useCachedQueries";
+import { useOrganizationStore } from "@/stores/organizationStore";
 import { dayLabel, formatFullDate } from "@/utils/date";
 
 export default function JogadorScreen() {
@@ -29,18 +34,66 @@ export default function JogadorScreen() {
   const { isAdmin } = useAdminAuth();
   const stats = usePlayerStats(id);
   const matches = useMatches(0);
+  const teams = useTeams();
+  const selectedOrganization = useOrganizationStore(
+    (state) => state.selectedOrganization,
+  );
   const recordEvent = useRecordPlayerEvent(id);
   const data = stats.data;
+  const shareCardRef = useRef<View>(null);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [goalQuantity, setGoalQuantity] = useState("1");
   const [assistQuantity, setAssistQuantity] = useState("1");
   const recentMatches = useMemo(() => {
-    const playerHistoryIds = new Set(data?.history.map((match) => match.id) ?? []);
+    const playerHistoryIds = new Set(
+      data?.history.map((match) => match.id) ?? [],
+    );
     const allMatches = matches.data ?? [];
-    const participated = allMatches.filter((match) => playerHistoryIds.has(match.id));
+    const participated = allMatches.filter((match) =>
+      playerHistoryIds.has(match.id),
+    );
     return (participated.length ? participated : allMatches).slice(0, 8);
-  }, [matches.data]);
-  const selectedMatch = recentMatches.find((match) => match.id === selectedMatchId) ?? recentMatches[0];
+  }, [data?.history, matches.data]);
+  const selectedMatch =
+    recentMatches.find((match) => match.id === selectedMatchId) ??
+    recentMatches[0];
+  const profileTitle =
+    data?.team?.is_champion && data.team.champion_title
+      ? data.team.champion_title
+      : "Nossa Champions";
+  const isChampionProfile = Boolean(
+    data?.team?.is_champion && data.team.champion_title,
+  );
+
+  async function sharePlayerCard() {
+    if (!shareCardRef.current || !data) return;
+
+    try {
+      const uri = await captureRef(shareCardRef, {
+        format: "png",
+        quality: 1,
+        result: "tmpfile",
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: `Compartilhar card de ${data.player.name}`,
+        });
+        return;
+      }
+
+      Alert.alert(
+        "Compartilhamento indisponivel",
+        "Este dispositivo nao liberou compartilhamento de arquivos.",
+      );
+    } catch (error) {
+      Alert.alert(
+        "Nao foi possivel compartilhar",
+        error instanceof Error ? error.message : "Tente novamente.",
+      );
+    }
+  }
   useEffect(() => {
     if (!selectedMatchId && recentMatches[0]) {
       setSelectedMatchId(recentMatches[0].id);
@@ -105,60 +158,111 @@ export default function JogadorScreen() {
         {stats.isLoading ? <ListSkeleton count={3} /> : null}
         {data ? (
           <>
-            <View className="mb-5 overflow-hidden rounded-lg border border-cardSecondary bg-card">
-              <View className="absolute bottom-0 left-0 h-20 w-full bg-cardSecondary" />
-              <View className="px-5 pt-5">
-                <View className="flex-row items-center">
-                  <Shield color={colors.primary} size={20} />
-                  <Text className="ml-2 text-xs font-black uppercase tracking-widest text-primary">
-                    Nossa Champions
-                  </Text>
+            <View className="bg-background">
+              <View className="mb-5 overflow-hidden rounded-lg border border-cardSecondary bg-card">
+                <View className="absolute bottom-0 left-0 h-20 w-full bg-cardSecondary" />
+                <View className="px-5 pt-5">
+                  <View className="flex-row items-center">
+                    {isChampionProfile ? (
+                      <Trophy color={colors.primary} size={20} />
+                    ) : (
+                      <Shield color={colors.primary} size={20} />
+                    )}
+                    <Text
+                      className="ml-2 flex-1 text-xs font-black uppercase tracking-widest text-primary"
+                      numberOfLines={2}
+                    >
+                      {profileTitle}
+                    </Text>
+                  </View>
+                </View>
+                <View className="mt-4 flex-row items-end px-5 pb-5">
+                  <View className="h-40 w-32 overflow-hidden rounded-lg border border-primary bg-cardSecondary">
+                    {data.player.photo_url ? (
+                      <Image
+                        source={{ uri: data.player.photo_url }}
+                        style={{ width: "100%", height: "100%" }}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                      />
+                    ) : (
+                      <View className="h-full items-center justify-center">
+                        <Text className="text-textSecondary">Sem foto</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View className="ml-4 flex-1">
+                    <Text
+                      className="text-3xl font-black text-text"
+                      numberOfLines={2}
+                    >
+                      {data.player.name}
+                    </Text>
+                    <Text
+                      className="mt-2 text-sm font-bold text-textSecondary"
+                      numberOfLines={2}
+                    >
+                      {[data.player.nickname, data.player.position]
+                        .filter(Boolean)
+                        .join(" - ") || "Jogador"}
+                    </Text>
+                    <Text
+                      className="mt-2 text-sm font-black text-primary"
+                      numberOfLines={1}
+                    >
+                      {data.team?.name ?? "Sem time nesta competicao"}
+                    </Text>
+                    <Text
+                      className="mt-2 text-xs font-bold uppercase tracking-widest text-muted"
+                      numberOfLines={2}
+                    >
+                      {[
+                        data.player.dominant_foot
+                          ? `Pe ${data.player.dominant_foot}`
+                          : null,
+                        data.player.jersey_number
+                          ? `Camisa ${data.player.jersey_number}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" - ") || "Dados opcionais nao informados"}
+                    </Text>
+                    <Text className="mt-4 text-5xl font-black text-primary">
+                      {data.goals + data.assists + data.matches}
+                    </Text>
+                    <Text className="text-xs uppercase tracking-widest text-textSecondary">
+                      overall
+                    </Text>
+                  </View>
                 </View>
               </View>
-              <View className="mt-4 flex-row items-end px-5 pb-5">
-                <View className="h-40 w-32 overflow-hidden rounded-lg border border-primary bg-cardSecondary">
-                  {data.player.photo_url ? (
-                    <Image
-                      source={{ uri: data.player.photo_url }}
-                      style={{ width: "100%", height: "100%" }}
-                      contentFit="cover"
-                      cachePolicy="memory-disk"
-                    />
-                  ) : (
-                    <View className="h-full items-center justify-center">
-                      <Text className="text-textSecondary">Sem foto</Text>
-                    </View>
-                  )}
-                </View>
-                <View className="ml-4 flex-1">
-                  <Text
-                    className="text-3xl font-black text-text"
-                    numberOfLines={2}
-                  >
-                    {data.player.name}
-                  </Text>
-                  <Text className="mt-2 text-sm font-bold text-textSecondary" numberOfLines={2}>
-                    {[data.player.nickname, data.player.position].filter(Boolean).join(" - ") || "Jogador"}
-                  </Text>
-                  <Text className="mt-2 text-sm font-black text-primary" numberOfLines={1}>
-                    {data.team?.name ?? "Sem time nesta competicao"}
-                  </Text>
-                  <Text className="mt-2 text-xs font-bold uppercase tracking-widest text-muted" numberOfLines={2}>
-                    {[data.player.dominant_foot ? `Pe ${data.player.dominant_foot}` : null, data.player.jersey_number ? `Camisa ${data.player.jersey_number}` : null].filter(Boolean).join(" - ") || "Dados opcionais nao informados"}
-                  </Text>
-                  <Text className="mt-4 text-5xl font-black text-primary">
-                    {data.goals + data.assists + data.matches}
-                  </Text>
-                  <Text className="text-xs uppercase tracking-widest text-textSecondary">
-                    overall
-                  </Text>
-                </View>
+              <View className="mb-6 flex-row gap-3">
+                <StatCard label="Jogos" value={data.matches} />
+                <StatCard label="Gols" value={data.goals} accent="purple" />
+                <StatCard label="Ast" value={data.assists} />
               </View>
             </View>
-            <View className="mb-6 flex-row gap-3">
-              <StatCard label="Jogos" value={data.matches} />
-              <StatCard label="Gols" value={data.goals} accent="purple" />
-              <StatCard label="Ast" value={data.assists} />
+            <Pressable
+              onPress={sharePlayerCard}
+              className="mb-6 flex-row items-center justify-center rounded-lg bg-card py-4"
+            >
+              <Share2 color={colors.primary} size={18} />
+              <Text className="ml-2 font-black text-text">
+                Compartilhar card
+              </Text>
+            </Pressable>
+            <View
+              pointerEvents="none"
+              style={{ position: "absolute", left: -10000, top: 0 }}
+            >
+              <View ref={shareCardRef} collapsable={false}>
+                <SharePlayerCard
+                  data={data}
+                  competitionName={selectedOrganization?.name ?? "Competicao"}
+                  title={profileTitle}
+                  isChampion={isChampionProfile}
+                />
+              </View>
             </View>
 
             {isAdmin ? (
@@ -184,13 +288,19 @@ export default function JogadorScreen() {
                         <Text className="mt-1 text-xs text-textSecondary">
                           {formatFullDate(match.played_at)}
                         </Text>
-                        <Text className="mt-1 text-xs text-muted" numberOfLines={1}>
-                          {match.team_a_name} {match.team_a_score} x {match.team_b_score} {match.team_b_name}
+                        <Text
+                          className="mt-1 text-xs text-muted"
+                          numberOfLines={1}
+                        >
+                          {match.team_a_name} {match.team_a_score} x{" "}
+                          {match.team_b_score} {match.team_b_name}
                         </Text>
                       </Pressable>
                     );
                   })}
                 </View>
+
+                {/* 
                 <Pressable
                   onPress={() => register("participation")}
                   disabled={recordEvent.isPending}
@@ -200,6 +310,7 @@ export default function JogadorScreen() {
                     Participou do treino
                   </Text>
                 </Pressable>
+                */}
 
                 <View className="mt-3 flex-row gap-3">
                   <View className="flex-1 rounded-lg bg-cardSecondary p-3">
@@ -255,9 +366,9 @@ export default function JogadorScreen() {
               </View>
             ) : null}
 
-            <Text className="mb-3 text-lg font-black text-text">Historico</Text>
+            <Text className="mb-3 text-lg font-black text-text">Histórico</Text>
             {data.history.map((match) => (
-              <MatchCard key={match.id} match={match} />
+              <MatchCard key={match.id} match={match} teams={teams.data} />
             ))}
             {!data.history.length ? (
               <EmptyState

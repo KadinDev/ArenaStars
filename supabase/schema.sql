@@ -96,6 +96,9 @@ create table if not exists public.teams (
   name text not null,
   logo_url text,
   color text,
+  is_champion boolean not null default false,
+  champion_title text,
+  champion_count integer check (champion_count is null or champion_count > 0),
   created_at timestamptz not null default now()
 );
 
@@ -120,7 +123,17 @@ alter table public.players add column if not exists dominant_foot text check (do
 alter table public.competition_players add column if not exists position text;
 alter table public.competition_players add column if not exists jersey_number integer check (jersey_number is null or jersey_number > 0);
 alter table public.competition_players add column if not exists dominant_foot text check (dominant_foot is null or dominant_foot in ('direito', 'esquerdo', 'ambos'));
+alter table public.teams add column if not exists is_champion boolean not null default false;
+alter table public.teams add column if not exists champion_title text;
+alter table public.teams add column if not exists champion_count integer check (champion_count is null or champion_count > 0);
 alter table public.matches add column if not exists organization_id uuid references public.organizations(id) on delete cascade;
+
+update public.teams
+set is_champion = false
+where is_champion is null;
+
+alter table public.teams alter column is_champion set default false;
+alter table public.teams alter column is_champion set not null;
 
 update public.players
 set organization_id = (select id from public.organizations where slug = 'nossa-pelada')
@@ -182,6 +195,7 @@ create index if not exists organization_members_organization_id_idx on public.or
 create index if not exists competition_players_organization_id_idx on public.competition_players (organization_id);
 create index if not exists competition_players_player_id_idx on public.competition_players (player_id);
 create index if not exists teams_organization_name_idx on public.teams (organization_id, name);
+create index if not exists teams_organization_champion_idx on public.teams (organization_id, is_champion);
 create index if not exists team_players_organization_id_idx on public.team_players (organization_id);
 create index if not exists team_players_team_id_idx on public.team_players (team_id);
 create index if not exists team_players_player_id_idx on public.team_players (player_id);
@@ -542,6 +556,13 @@ set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('team-logos', 'team-logos', true, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
 drop policy if exists "public read player photos" on storage.objects;
 create policy "public read player photos" on storage.objects
 for select using (bucket_id = 'players');
@@ -569,6 +590,18 @@ for insert with check (bucket_id = 'competition-logos' and public.is_admin());
 drop policy if exists "admin update competition logos" on storage.objects;
 create policy "admin update competition logos" on storage.objects
 for update using (bucket_id = 'competition-logos' and public.is_admin()) with check (bucket_id = 'competition-logos' and public.is_admin());
+
+drop policy if exists "public read team logos" on storage.objects;
+create policy "public read team logos" on storage.objects
+for select using (bucket_id = 'team-logos');
+
+drop policy if exists "admin upload team logos" on storage.objects;
+create policy "admin upload team logos" on storage.objects
+for insert with check (bucket_id = 'team-logos' and public.is_admin());
+
+drop policy if exists "admin update team logos" on storage.objects;
+create policy "admin update team logos" on storage.objects
+for update using (bucket_id = 'team-logos' and public.is_admin()) with check (bucket_id = 'team-logos' and public.is_admin());
 
 -- Defina admins no Supabase Auth com:
 -- update auth.users

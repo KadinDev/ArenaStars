@@ -44,7 +44,10 @@ const filters: Array<TrainingDay | "todos"> = [
   "sabado",
 ];
 
-type PlayerDraft = Record<string, { selected: boolean; team_id: string | null }>;
+type PlayerDraft = Record<
+  string,
+  { selected: boolean; team_id: string | null }
+>;
 
 function brDateOnly(value: string | Date) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -109,11 +112,44 @@ export default function JogosScreen() {
     () => (players.data ?? []).filter((player) => draft[player.id]?.selected),
     [draft, players.data],
   );
-  const teamById = useMemo(() => new Map((teams.data ?? []).map((team) => [team.id, team])), [teams.data]);
+  const teamById = useMemo(
+    () => new Map((teams.data ?? []).map((team) => [team.id, team])),
+    [teams.data],
+  );
   const teamByPlayerId = useMemo(
-    () => new Map((teamPlayers.data ?? []).map((item) => [item.player_id, item.team_id])),
+    () =>
+      new Map(
+        (teamPlayers.data ?? []).map((item) => [item.player_id, item.team_id]),
+      ),
     [teamPlayers.data],
   );
+  const renderMatchTeam = (name: string, teamId: string | null) => {
+    const team = teamId ? teamById.get(teamId) : null;
+    return (
+      <View className="w-28 items-center">
+        <View className="mb-2 h-14 w-14 overflow-hidden rounded-lg bg-cardSecondary">
+          {team?.logo_url ? (
+            <Image
+              source={{ uri: team.logo_url }}
+              style={{ width: 56, height: 56 }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <View className="h-full items-center justify-center">
+              <UsersRound color={colors.muted} size={20} />
+            </View>
+          )}
+        </View>
+        <Text
+          className="text-center text-sm font-bold text-text"
+          numberOfLines={2}
+        >
+          {name}
+        </Text>
+      </View>
+    );
+  };
 
   function resetForm() {
     setEditingId(null);
@@ -330,7 +366,11 @@ export default function JogosScreen() {
                 <Text className="mb-2 mt-4 text-xs font-black uppercase tracking-widest text-textSecondary">
                   Times do jogo
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8 }}
+                >
                   {(teams.data ?? []).map((team) => {
                     const active = team.id === teamAId;
                     return (
@@ -342,12 +382,20 @@ export default function JogosScreen() {
                         }}
                         className={`rounded-lg px-4 py-3 ${active ? "bg-primary" : "bg-cardSecondary"}`}
                       >
-                        <Text className={`font-bold ${active ? "text-background" : "text-textSecondary"}`}>A: {team.name}</Text>
+                        <Text
+                          className={`font-bold ${active ? "text-background" : "text-textSecondary"}`}
+                        >
+                          A: {team.name}
+                        </Text>
                       </Pressable>
                     );
                   })}
                 </ScrollView>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 8 }}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingTop: 8 }}
+                >
                   {(teams.data ?? []).map((team) => {
                     const active = team.id === teamBId;
                     return (
@@ -359,7 +407,11 @@ export default function JogosScreen() {
                         }}
                         className={`rounded-lg px-4 py-3 ${active ? "bg-purple" : "bg-cardSecondary"}`}
                       >
-                        <Text className={`font-bold ${active ? "text-text" : "text-textSecondary"}`}>B: {team.name}</Text>
+                        <Text
+                          className={`font-bold ${active ? "text-text" : "text-textSecondary"}`}
+                        >
+                          B: {team.name}
+                        </Text>
                       </Pressable>
                     );
                   })}
@@ -405,22 +457,37 @@ export default function JogosScreen() {
             <Text className="mb-2 mt-5 text-base font-black text-text">
               Jogadores ({selectedCount})
             </Text>
-            <Pressable onPress={() => setPlayersModalVisible(true)} className="rounded-lg bg-cardSecondary p-4">
+            <Pressable
+              onPress={() => setPlayersModalVisible(true)}
+              className="rounded-lg bg-cardSecondary p-4"
+            >
               <View className="flex-row items-center justify-between">
-                <Text className="font-black text-text">Selecionar jogadores</Text>
+                <Text className="font-black text-text">
+                  Selecionar jogadores
+                </Text>
                 <UsersRound color={colors.primary} size={20} />
               </View>
               <Text className="mt-2 text-sm text-textSecondary">
-                {selectedCount ? `${selectedCount} jogadores selecionados` : "Toque para escolher quem jogou"}
+                {selectedCount
+                  ? `${selectedCount} jogadores selecionados`
+                  : "Toque para escolher quem jogou"}
               </Text>
             </Pressable>
             {selectedPlayers.length ? (
               <View className="mt-3 gap-2">
                 {selectedPlayers.map((player) => (
-                  <View key={player.id} className="flex-row items-center rounded-lg bg-cardSecondary p-2">
+                  <View
+                    key={player.id}
+                    className="flex-row items-center rounded-lg bg-cardSecondary p-2"
+                  >
                     <View className="h-10 w-10 overflow-hidden rounded-lg bg-card">
                       {player.photo_url ? (
-                        <Image source={{ uri: player.photo_url }} style={{ width: 40, height: 40 }} contentFit="cover" cachePolicy="memory-disk" />
+                        <Image
+                          source={{ uri: player.photo_url }}
+                          style={{ width: 40, height: 40 }}
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                        />
                       ) : (
                         <View className="h-full items-center justify-center">
                           <UsersRound color={colors.muted} size={18} />
@@ -428,9 +495,18 @@ export default function JogosScreen() {
                       )}
                     </View>
                     <View className="ml-3 flex-1">
-                      <Text className="font-bold text-text" numberOfLines={1}>{player.name}</Text>
-                      <Text className="mt-1 text-xs text-primary" numberOfLines={1}>
-                        {teamById.get(draft[player.id]?.team_id ?? teamByPlayerId.get(player.id) ?? "")?.name ?? "Sem time"}
+                      <Text className="font-bold text-text" numberOfLines={1}>
+                        {player.name}
+                      </Text>
+                      <Text
+                        className="mt-1 text-xs text-primary"
+                        numberOfLines={1}
+                      >
+                        {teamById.get(
+                          draft[player.id]?.team_id ??
+                            teamByPlayerId.get(player.id) ??
+                            "",
+                        )?.name ?? "Sem time"}
                       </Text>
                     </View>
                   </View>
@@ -463,29 +539,51 @@ export default function JogosScreen() {
           </View>
         ) : null}
 
-        <Modal transparent visible={playersModalVisible} animationType="fade" onRequestClose={() => setPlayersModalVisible(false)}>
+        <Modal
+          transparent
+          visible={playersModalVisible}
+          animationType="fade"
+          onRequestClose={() => setPlayersModalVisible(false)}
+        >
           <View className="flex-1 justify-end bg-black/70">
             <View className="max-h-[82%] rounded-t-lg bg-background p-5">
               <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-2xl font-black text-text">Quem jogou?</Text>
-                <Pressable onPress={() => setPlayersModalVisible(false)} className="h-11 w-11 items-center justify-center rounded-lg bg-card">
+                <Text className="text-2xl font-black text-text">
+                  Quem jogou?
+                </Text>
+                <Pressable
+                  onPress={() => setPlayersModalVisible(false)}
+                  className="h-11 w-11 items-center justify-center rounded-lg bg-card"
+                >
                   <X color={colors.text} size={20} />
                 </Pressable>
               </View>
               <ScrollView>
                 {(players.data ?? []).map((player) => {
                   const selected = Boolean(draft[player.id]?.selected);
-                  const playerTeamId = draft[player.id]?.team_id ?? teamByPlayerId.get(player.id) ?? null;
-                  const playerTeam = playerTeamId ? teamById.get(playerTeamId) : null;
+                  const playerTeamId =
+                    draft[player.id]?.team_id ??
+                    teamByPlayerId.get(player.id) ??
+                    null;
+                  const playerTeam = playerTeamId
+                    ? teamById.get(playerTeamId)
+                    : null;
                   return (
                     <Pressable
                       key={player.id}
-                      onPress={() => updatePlayerDraft(player.id, { selected: !selected })}
+                      onPress={() =>
+                        updatePlayerDraft(player.id, { selected: !selected })
+                      }
                       className={`mb-2 flex-row items-center rounded-lg border p-3 ${selected ? "border-primary bg-cardSecondary" : "border-cardSecondary bg-card"}`}
                     >
                       <View className="h-12 w-12 overflow-hidden rounded-lg bg-cardSecondary">
                         {player.photo_url ? (
-                          <Image source={{ uri: player.photo_url }} style={{ width: 48, height: 48 }} contentFit="cover" cachePolicy="memory-disk" />
+                          <Image
+                            source={{ uri: player.photo_url }}
+                            style={{ width: 48, height: 48 }}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                          />
                         ) : (
                           <View className="h-full items-center justify-center">
                             <UsersRound color={colors.muted} size={20} />
@@ -493,17 +591,39 @@ export default function JogosScreen() {
                         )}
                       </View>
                       <View className="ml-3 flex-1">
-                        <Text className="font-bold text-text" numberOfLines={1}>{player.name}</Text>
-                        <Text className="mt-1 text-xs text-textSecondary" numberOfLines={1}>{player.nickname || "Sem apelido"} - {player.position || "Jogador"}</Text>
-                        <Text className="mt-1 text-xs text-primary" numberOfLines={1}>{playerTeam?.name ?? "Sem time"}</Text>
+                        <Text className="font-bold text-text" numberOfLines={1}>
+                          {player.name}
+                        </Text>
+                        <Text
+                          className="mt-1 text-xs text-textSecondary"
+                          numberOfLines={1}
+                        >
+                          {player.nickname || "Sem apelido"} -{" "}
+                          {player.position || "Jogador"}
+                        </Text>
+                        <Text
+                          className="mt-1 text-xs text-primary"
+                          numberOfLines={1}
+                        >
+                          {playerTeam?.name ?? "Sem time"}
+                        </Text>
                       </View>
-                      <Text className={`font-black ${selected ? "text-primary" : "text-muted"}`}>{selected ? "Jogou" : "Fora"}</Text>
+                      <Text
+                        className={`font-black ${selected ? "text-primary" : "text-muted"}`}
+                      >
+                        {selected ? "Jogou" : "Fora"}
+                      </Text>
                     </Pressable>
                   );
                 })}
               </ScrollView>
-              <Pressable onPress={() => setPlayersModalVisible(false)} className="mt-4 rounded-lg bg-primary py-4">
-                <Text className="text-center font-black text-background">Concluir</Text>
+              <Pressable
+                onPress={() => setPlayersModalVisible(false)}
+                className="mt-4 rounded-lg bg-primary py-4"
+              >
+                <Text className="text-center font-black text-background">
+                  Concluir
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -521,21 +641,11 @@ export default function JogosScreen() {
               </Text>
             </View>
             <View className="flex-row items-center justify-between">
-              <Text
-                className="w-28 text-base font-bold text-text"
-                numberOfLines={1}
-              >
-                {match.team_a_name}
-              </Text>
+              {renderMatchTeam(match.team_a_name, match.team_a_id)}
               <Text className="text-2xl font-black text-text">
                 {match.team_a_score} x {match.team_b_score}
               </Text>
-              <Text
-                className="w-28 text-right text-base font-bold text-text"
-                numberOfLines={1}
-              >
-                {match.team_b_name}
-              </Text>
+              {renderMatchTeam(match.team_b_name, match.team_b_id)}
             </View>
             {isAdmin ? (
               <View className="mt-4 flex-row gap-3">
