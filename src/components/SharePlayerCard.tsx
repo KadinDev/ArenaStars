@@ -30,7 +30,7 @@ function InfoRow({
 }) {
   return (
     <View className="mb-2 flex-row items-center rounded-lg border border-[#114B73] bg-[#07111F]/90 px-3 py-2">
-      <View className="h-8 w-8 items-center justify-center rounded-md bg-[#0B1A2E]">
+      <View className="h-7 w-7 items-center justify-center rounded-md bg-[#0B1A2E]">
         {icon}
       </View>
       <View className="ml-3 flex-1">
@@ -38,7 +38,7 @@ function InfoRow({
           {label}
         </Text>
         <Text
-          className="text-base font-black uppercase text-text"
+          className="text-sm font-black uppercase text-text"
           numberOfLines={1}
         >
           {value}
@@ -50,11 +50,13 @@ function InfoRow({
 
 function StatBlock({ label, value }: { label: string; value: number }) {
   return (
-    <View className="flex-1 items-center">
-      <Text className="text-[10px] font-black uppercase text-[#65D7FF]">
+    <View className="flex-1 items-center justify-center">
+      <Text className="text-[9px] font-black uppercase text-[#65D7FF]" numberOfLines={1}>
         {label}
       </Text>
-      <Text className="mt-1 text-5xl font-black text-[#20BFFF]">{value}</Text>
+      <Text className="mt-1 text-4xl font-black text-[#20BFFF]" numberOfLines={1}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -76,10 +78,24 @@ export function SharePlayerCard({
 
   return (
     <View
-      style={{ width: 390, height: 585 }}
+      style={{ width: 390, height: 640 }}
       className="overflow-hidden bg-[#030813] p-4"
     >
       <View className="absolute left-0 top-0 h-full w-full bg-[#051A3D]" />
+      {data.player.photo_url ? (
+        <Image
+          source={{ uri: data.player.photo_url }}
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            opacity: 0.18,
+          }}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+      ) : null}
+      <View className="absolute left-0 top-0 h-full w-full bg-[#020611]/75" />
       <View className="absolute right-0 top-0 h-full w-48 bg-[#0B42A0]" />
       <View className="absolute bottom-0 left-0 h-36 w-full bg-[#020611]" />
 
@@ -104,17 +120,18 @@ export function SharePlayerCard({
           </Text>
         </View>
 
-        <View className="mt-6 flex-row">
+        <View className="mt-4 flex-row">
           <View className="flex-1 pr-2">
             <Text
-              className="text-3xl font-black uppercase text-text"
+              className="text-2xl font-black uppercase text-text"
               numberOfLines={1}
             >
               {firstName}
             </Text>
             <Text
-              className="text-5xl font-black uppercase text-[#21C8FF]"
-              numberOfLines={1}
+              adjustsFontSizeToFit
+              className="text-4xl font-black uppercase text-[#21C8FF]"
+              numberOfLines={2}
             >
               {lastName || firstName}
             </Text>
@@ -125,11 +142,11 @@ export function SharePlayerCard({
             </View>
           </View>
 
-          <View className="h-44 w-32 overflow-hidden rounded-lg border border-[#2CCBFF] bg-[#07111F]">
+          <View className="h-40 w-28 overflow-hidden rounded-lg border border-[#2CCBFF] bg-[#07111F]">
             {data.player.photo_url ? (
               <Image
                 source={{ uri: data.player.photo_url }}
-                style={{ width: 128, height: 176 }}
+                style={{ width: 112, height: 160 }}
                 contentFit="cover"
                 cachePolicy="memory-disk"
               />
@@ -141,47 +158,47 @@ export function SharePlayerCard({
           </View>
         </View>
 
-        <View className="mt-4 w-48">
+        <View className="mt-3 w-52">
           <InfoRow
-            icon={<UserRound color={colors.text} size={18} />}
+            icon={<UserRound color={colors.text} size={16} />}
             label="Apelido"
             value={data.player.nickname ?? "Jogador"}
           />
           <InfoRow
-            icon={<Goal color={colors.text} size={18} />}
+            icon={<Goal color={colors.text} size={16} />}
             label="Posicao"
             value={data.player.position ?? "Jogador"}
           />
           <InfoRow
-            icon={<Footprints color={colors.text} size={18} />}
+            icon={<Footprints color={colors.text} size={16} />}
             label="Perna"
             value={data.player.dominant_foot ?? "Nao informado"}
           />
           <InfoRow
-            icon={<Shirt color={colors.text} size={18} />}
+            icon={<Shirt color={colors.text} size={16} />}
             label="Numero"
             value={number}
           />
           <InfoRow
-            icon={<Shield color={colors.text} size={18} />}
+            icon={<Shield color={colors.text} size={16} />}
             label="Time"
             value={data.team?.name ?? "Sem time"}
           />
         </View>
 
-        <View className="mt-auto rounded-lg border border-[#2CCBFF] bg-[#041027]/95 p-3">
+        <View className="mt-auto min-h-28 rounded-lg border border-[#2CCBFF] bg-[#041027]/95 p-3">
           <Text
             className="mb-2 text-center text-[10px] font-black uppercase tracking-widest text-primary"
             numberOfLines={1}
           >
             {competitionName}
           </Text>
-          <View className="flex-row items-center">
+          <View className="flex-row flex-1 items-center">
             <StatBlock label="Gols" value={data.goals} />
-            <View className="mx-2 h-16 w-px bg-[#2CCBFF]" />
+            <View className="mx-2 h-14 w-px bg-[#2CCBFF]" />
             <StatBlock label="Jogos" value={data.matches} />
-            <View className="mx-2 h-16 w-px bg-[#2CCBFF]" />
-            <StatBlock label="Assistencias" value={data.assists} />
+            <View className="mx-2 h-14 w-px bg-[#2CCBFF]" />
+            <StatBlock label="Assist." value={data.assists} />
           </View>
         </View>
       </View>
