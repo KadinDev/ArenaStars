@@ -296,7 +296,7 @@ export async function fetchRanking(organizationId: string, day: TrainingDay | "g
 
 export async function fetchPlayerStats(organizationId: string, playerId: string): Promise<PlayerStats | null> {
   if (!supabase) return null;
-  const [playerResponse, competitionProfileResponse, goalsResponse, assistsResponse, participationsResponse] = await Promise.all([
+  const [playerResponse, competitionProfileResponse, goalsResponse, assistsResponse, allParticipationsResponse, historyParticipationsResponse] = await Promise.all([
     supabase
       .from("players")
       .select("id,organization_id,name,nickname,photo_url,position,jersey_number,dominant_foot,active,created_at")
@@ -312,6 +312,11 @@ export async function fetchPlayerStats(organizationId: string, playerId: string)
     supabase.from("assists").select("match_id,quantity").eq("player_id", playerId),
     supabase
       .from("participations")
+      .select("match_id,matches!inner(id,organization_id)")
+      .eq("player_id", playerId)
+      .eq("matches.organization_id", organizationId),
+    supabase
+      .from("participations")
       .select("match_id,matches!inner(id,organization_id,team_a_id,team_b_id,training_day,played_at,team_a_name,team_b_name,team_a_score,team_b_score)")
       .eq("player_id", playerId)
       .eq("matches.organization_id", organizationId)
@@ -323,16 +328,18 @@ export async function fetchPlayerStats(organizationId: string, playerId: string)
   if (competitionProfileResponse.error) throw competitionProfileResponse.error;
   if (goalsResponse.error) throw goalsResponse.error;
   if (assistsResponse.error) throw assistsResponse.error;
-  if (participationsResponse.error) throw participationsResponse.error;
+  if (allParticipationsResponse.error) throw allParticipationsResponse.error;
+  if (historyParticipationsResponse.error) throw historyParticipationsResponse.error;
   if (!playerResponse.data) return null;
 
-  const participationRows = (participationsResponse.data ?? []) as unknown as Array<{ match_id: string; matches: Match | Match[] | null }>;
+  const allParticipationRows = (allParticipationsResponse.data ?? []) as Array<{ match_id: string }>;
+  const organizationMatchIds = new Set(allParticipationRows.map((item) => item.match_id));
+  const participationRows = (historyParticipationsResponse.data ?? []) as unknown as Array<{ match_id: string; matches: Match | Match[] | null }>;
   const matchIds = participationRows.map((item) => item.match_id);
   const history = participationRows
     .map((item) => Array.isArray(item.matches) ? item.matches[0] : item.matches)
     .filter((match): match is Match => Boolean(match));
   const order = new Map(matchIds.map((matchId, index) => [matchId, index]));
-  const organizationMatchIds = new Set(history.map((match) => match.id));
   history.sort(
     (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
   );
@@ -361,7 +368,7 @@ export async function fetchPlayerStats(organizationId: string, playerId: string)
     team,
     goals: (goalsResponse.data ?? []).reduce((sum, item) => organizationMatchIds.has(item.match_id) ? sum + item.quantity : sum, 0),
     assists: (assistsResponse.data ?? []).reduce((sum, item) => organizationMatchIds.has(item.match_id) ? sum + item.quantity : sum, 0),
-    matches: history.length,
+    matches: organizationMatchIds.size,
     history
   };
 }
@@ -557,9 +564,31 @@ export async function saveMatchWithStats(input: MatchWithStatsInput) {
     team_id: player.team_id ?? null,
     training_day: input.training_day
   }));
+  const goals = input.players
+    .filter((player) => player.goals > 0)
+    .map((player) => ({
+      match_id: matchId,
+      player_id: player.player_id,
+      quantity: player.goals
+    }));
+  const assists = input.players
+    .filter((player) => player.assists > 0)
+    .map((player) => ({
+      match_id: matchId,
+      player_id: player.player_id,
+      quantity: player.assists
+    }));
 
   if (participations.length) {
     const { error } = await client.from("participations").insert(participations);
+    if (error) throw error;
+  }
+  if (goals.length) {
+    const { error } = await client.from("goals").insert(goals);
+    if (error) throw error;
+  }
+  if (assists.length) {
+    const { error } = await client.from("assists").insert(assists);
     if (error) throw error;
   }
 

@@ -46,7 +46,7 @@ const filters: Array<TrainingDay | "todos"> = [
 
 type PlayerDraft = Record<
   string,
-  { selected: boolean; team_id: string | null }
+  { selected: boolean; team_id: string | null; goals: number; assists: number }
 >;
 
 function brDateOnly(value: string | Date) {
@@ -174,6 +174,8 @@ export default function JogosScreen() {
         ...current[playerId],
         selected: false,
         team_id: teamByPlayerId.get(playerId) ?? null,
+        goals: 0,
+        assists: 0,
         ...patch,
       },
     }));
@@ -195,7 +197,12 @@ export default function JogosScreen() {
         Object.fromEntries(
           Object.entries(stats).map(([playerId]) => [
             playerId,
-            { selected: true, team_id: stats[playerId].team_id },
+            {
+              selected: true,
+              team_id: stats[playerId].team_id,
+              goals: stats[playerId].goals,
+              assists: stats[playerId].assists,
+            },
           ]),
         ),
       );
@@ -214,8 +221,8 @@ export default function JogosScreen() {
       .map(([playerId, item]) => ({
         player_id: playerId,
         team_id: item.team_id ?? teamByPlayerId.get(playerId) ?? null,
-        goals: 0,
-        assists: 0,
+        goals: item.goals,
+        assists: item.assists,
       }));
 
     if (!selectedPlayers.length) {
