@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Shield, Star } from "lucide-react-native";
+import { ArrowLeft, Shield } from "lucide-react-native";
 import { MatchCard } from "@/components/MatchCard";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -41,8 +41,6 @@ export default function JogadorScreen() {
     return (participated.length ? participated : allMatches).slice(0, 8);
   }, [matches.data]);
   const selectedMatch = recentMatches.find((match) => match.id === selectedMatchId) ?? recentMatches[0];
-  const playerMeta = [data?.player.nickname, data?.player.position].filter(Boolean).join(" - ") || "Jogador";
-
   useEffect(() => {
     if (!selectedMatchId && recentMatches[0]) {
       setSelectedMatchId(recentMatches[0].id);
@@ -107,22 +105,18 @@ export default function JogadorScreen() {
         {stats.isLoading ? <ListSkeleton count={3} /> : null}
         {data ? (
           <>
-            <View className="mb-5 overflow-hidden rounded-lg bg-card">
-              <View className="absolute left-0 top-0 h-full w-2 bg-primary" />
-              <View className="absolute right-0 top-0 h-20 w-20 rounded-bl-lg bg-purple" />
+            <View className="mb-5 overflow-hidden rounded-lg border border-cardSecondary bg-card">
+              <View className="absolute bottom-0 left-0 h-20 w-full bg-cardSecondary" />
               <View className="px-5 pt-5">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center">
-                    <Shield color={colors.primary} size={20} />
-                    <Text className="ml-2 text-xs font-black uppercase tracking-widest text-primary">
-                      Nossa Champions
-                    </Text>
-                  </View>
-                  <Star color={colors.text} size={18} />
+                <View className="flex-row items-center">
+                  <Shield color={colors.primary} size={20} />
+                  <Text className="ml-2 text-xs font-black uppercase tracking-widest text-primary">
+                    Nossa Champions
+                  </Text>
                 </View>
               </View>
               <View className="mt-4 flex-row items-end px-5 pb-5">
-                <View className="h-36 w-32 overflow-hidden rounded-lg bg-cardSecondary">
+                <View className="h-40 w-32 overflow-hidden rounded-lg border border-primary bg-cardSecondary">
                   {data.player.photo_url ? (
                     <Image
                       source={{ uri: data.player.photo_url }}
@@ -138,13 +132,19 @@ export default function JogadorScreen() {
                 </View>
                 <View className="ml-4 flex-1">
                   <Text
-                    className="text-4xl font-black text-text"
+                    className="text-3xl font-black text-text"
                     numberOfLines={2}
                   >
                     {data.player.name}
                   </Text>
-                  <Text className="mt-2 text-sm font-bold uppercase tracking-widest text-textSecondary" numberOfLines={2}>
-                    {playerMeta}
+                  <Text className="mt-2 text-sm font-bold text-textSecondary" numberOfLines={2}>
+                    {[data.player.nickname, data.player.position].filter(Boolean).join(" - ") || "Jogador"}
+                  </Text>
+                  <Text className="mt-2 text-sm font-black text-primary" numberOfLines={1}>
+                    {data.team?.name ?? "Sem time nesta competicao"}
+                  </Text>
+                  <Text className="mt-2 text-xs font-bold uppercase tracking-widest text-muted" numberOfLines={2}>
+                    {[data.player.dominant_foot ? `Pe ${data.player.dominant_foot}` : null, data.player.jersey_number ? `Camisa ${data.player.jersey_number}` : null].filter(Boolean).join(" - ") || "Dados opcionais nao informados"}
                   </Text>
                   <Text className="mt-4 text-5xl font-black text-primary">
                     {data.goals + data.assists + data.matches}

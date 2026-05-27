@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import {
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Edit3, Plus, Trash2 } from "lucide-react-native";
+import { Edit3, Plus, Trash2, UsersRound, X } from "lucide-react-native";
 import { Header } from "@/components/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { ListSkeleton } from "@/components/Skeletons";
@@ -19,6 +21,8 @@ import {
   useMatches,
   usePlayers,
   useSaveMatchWithStats,
+  useTeamPlayers,
+  useTeams,
 } from "@/hooks/useCachedQueries";
 import { fetchMatchPlayerStats } from "@/services/queries";
 import type { Match, TrainingDay } from "@/types/database";
@@ -40,7 +44,7 @@ const filters: Array<TrainingDay | "todos"> = [
   "sabado",
 ];
 
-type PlayerDraft = Record<string, { selected: boolean }>;
+type PlayerDraft = Record<string, { selected: boolean; team_id: string | null }>;
 
 function brDateOnly(value: string | Date) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -77,6 +81,8 @@ function toPlayedAt(date: string, time: string) {
 export default function JogosScreen() {
   const { isAdmin } = useAdminAuth();
   const players = usePlayers();
+  const teams = useTeams();
+  const teamPlayers = useTeamPlayers();
   const saveMatch = useSaveMatchWithStats();
   const deleteMatch = useDeleteMatch();
   const [filter, setFilter] = useState<TrainingDay | "todos">("todos");
@@ -87,14 +93,26 @@ export default function JogosScreen() {
   const [playedTime, setPlayedTime] = useState(timeOnly(new Date()));
   const [teamA, setTeamA] = useState("Time A");
   const [teamB, setTeamB] = useState("Time B");
+  const [teamAId, setTeamAId] = useState<string | null>(null);
+  const [teamBId, setTeamBId] = useState<string | null>(null);
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
   const [draft, setDraft] = useState<PlayerDraft>({});
+  const [playersModalVisible, setPlayersModalVisible] = useState(false);
   const computedTrainingDay = dayFromDate(toDateFromBr(playedAt));
 
   const selectedCount = useMemo(
     () => Object.values(draft).filter((item) => item.selected).length,
     [draft],
+  );
+  const selectedPlayers = useMemo(
+    () => (players.data ?? []).filter((player) => draft[player.id]?.selected),
+    [draft, players.data],
+  );
+  const teamById = useMemo(() => new Map((teams.data ?? []).map((team) => [team.id, team])), [teams.data]);
+  const teamByPlayerId = useMemo(
+    () => new Map((teamPlayers.data ?? []).map((item) => [item.player_id, item.team_id])),
+    [teamPlayers.data],
   );
 
   function resetForm() {
@@ -103,6 +121,8 @@ export default function JogosScreen() {
     setPlayedTime(timeOnly(new Date()));
     setTeamA("Time A");
     setTeamB("Time B");
+    setTeamAId(null);
+    setTeamBId(null);
     setScoreA("0");
     setScoreB("0");
     setDraft({});
@@ -117,6 +137,7 @@ export default function JogosScreen() {
       [playerId]: {
         ...current[playerId],
         selected: false,
+        team_id: teamByPlayerId.get(playerId) ?? null,
         ...patch,
       },
     }));
@@ -130,13 +151,15 @@ export default function JogosScreen() {
       setPlayedTime(timeOnly(match.played_at));
       setTeamA(match.team_a_name);
       setTeamB(match.team_b_name);
+      setTeamAId(match.team_a_id);
+      setTeamBId(match.team_b_id);
       setScoreA(String(match.team_a_score));
       setScoreB(String(match.team_b_score));
       setDraft(
         Object.fromEntries(
           Object.entries(stats).map(([playerId]) => [
             playerId,
-            { selected: true },
+            { selected: true, team_id: stats[playerId].team_id },
           ]),
         ),
       );
@@ -152,8 +175,9 @@ export default function JogosScreen() {
   async function submitMatch() {
     const selectedPlayers = Object.entries(draft)
       .filter(([, item]) => item.selected)
-      .map(([playerId]) => ({
+      .map(([playerId, item]) => ({
         player_id: playerId,
+        team_id: item.team_id ?? teamByPlayerId.get(playerId) ?? null,
         goals: 0,
         assists: 0,
       }));
@@ -173,6 +197,8 @@ export default function JogosScreen() {
         played_at: toPlayedAt(playedAt, playedTime),
         team_a_name: teamA.trim() || "Time A",
         team_b_name: teamB.trim() || "Time B",
+        team_a_id: teamAId,
+        team_b_id: teamBId,
         team_a_score: Number(scoreA) || 0,
         team_b_score: Number(scoreB) || 0,
         players: selectedPlayers,
@@ -299,6 +325,48 @@ export default function JogosScreen() {
                 />
               </View>
             </View>
+            {(teams.data ?? []).length ? (
+              <>
+                <Text className="mb-2 mt-4 text-xs font-black uppercase tracking-widest text-textSecondary">
+                  Times do jogo
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {(teams.data ?? []).map((team) => {
+                    const active = team.id === teamAId;
+                    return (
+                      <Pressable
+                        key={`a-${team.id}`}
+                        onPress={() => {
+                          setTeamAId(team.id);
+                          setTeamA(team.name);
+                        }}
+                        className={`rounded-lg px-4 py-3 ${active ? "bg-primary" : "bg-cardSecondary"}`}
+                      >
+                        <Text className={`font-bold ${active ? "text-background" : "text-textSecondary"}`}>A: {team.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 8 }}>
+                  {(teams.data ?? []).map((team) => {
+                    const active = team.id === teamBId;
+                    return (
+                      <Pressable
+                        key={`b-${team.id}`}
+                        onPress={() => {
+                          setTeamBId(team.id);
+                          setTeamB(team.name);
+                        }}
+                        className={`rounded-lg px-4 py-3 ${active ? "bg-purple" : "bg-cardSecondary"}`}
+                      >
+                        <Text className={`font-bold ${active ? "text-text" : "text-textSecondary"}`}>B: {team.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </>
+            ) : null}
+
             <View className="mt-3 flex-row gap-3">
               <TextInput
                 value={teamA}
@@ -337,34 +405,38 @@ export default function JogosScreen() {
             <Text className="mb-2 mt-5 text-base font-black text-text">
               Jogadores ({selectedCount})
             </Text>
-            {(players.data ?? []).map((player) => {
-              const item = draft[player.id] ?? { selected: false };
-              return (
-                <View
-                  key={player.id}
-                  className="mb-2 rounded-lg bg-cardSecondary p-3"
-                >
-                  <Pressable
-                    onPress={() =>
-                      updatePlayerDraft(player.id, { selected: !item.selected })
-                    }
-                    className="flex-row items-center justify-between"
-                  >
-                    <Text
-                      className="flex-1 font-bold text-text"
-                      numberOfLines={1}
-                    >
-                      {player.nickname || player.name}
-                    </Text>
-                    <Text
-                      className={`font-black ${item.selected ? "text-primary" : "text-muted"}`}
-                    >
-                      {item.selected ? "Jogou" : "Fora"}
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            })}
+            <Pressable onPress={() => setPlayersModalVisible(true)} className="rounded-lg bg-cardSecondary p-4">
+              <View className="flex-row items-center justify-between">
+                <Text className="font-black text-text">Selecionar jogadores</Text>
+                <UsersRound color={colors.primary} size={20} />
+              </View>
+              <Text className="mt-2 text-sm text-textSecondary">
+                {selectedCount ? `${selectedCount} jogadores selecionados` : "Toque para escolher quem jogou"}
+              </Text>
+            </Pressable>
+            {selectedPlayers.length ? (
+              <View className="mt-3 gap-2">
+                {selectedPlayers.map((player) => (
+                  <View key={player.id} className="flex-row items-center rounded-lg bg-cardSecondary p-2">
+                    <View className="h-10 w-10 overflow-hidden rounded-lg bg-card">
+                      {player.photo_url ? (
+                        <Image source={{ uri: player.photo_url }} style={{ width: 40, height: 40 }} contentFit="cover" cachePolicy="memory-disk" />
+                      ) : (
+                        <View className="h-full items-center justify-center">
+                          <UsersRound color={colors.muted} size={18} />
+                        </View>
+                      )}
+                    </View>
+                    <View className="ml-3 flex-1">
+                      <Text className="font-bold text-text" numberOfLines={1}>{player.name}</Text>
+                      <Text className="mt-1 text-xs text-primary" numberOfLines={1}>
+                        {teamById.get(draft[player.id]?.team_id ?? teamByPlayerId.get(player.id) ?? "")?.name ?? "Sem time"}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
 
             <View className="mt-3 flex-row gap-3">
               <Pressable
@@ -390,6 +462,52 @@ export default function JogosScreen() {
             </View>
           </View>
         ) : null}
+
+        <Modal transparent visible={playersModalVisible} animationType="fade" onRequestClose={() => setPlayersModalVisible(false)}>
+          <View className="flex-1 justify-end bg-black/70">
+            <View className="max-h-[82%] rounded-t-lg bg-background p-5">
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text className="text-2xl font-black text-text">Quem jogou?</Text>
+                <Pressable onPress={() => setPlayersModalVisible(false)} className="h-11 w-11 items-center justify-center rounded-lg bg-card">
+                  <X color={colors.text} size={20} />
+                </Pressable>
+              </View>
+              <ScrollView>
+                {(players.data ?? []).map((player) => {
+                  const selected = Boolean(draft[player.id]?.selected);
+                  const playerTeamId = draft[player.id]?.team_id ?? teamByPlayerId.get(player.id) ?? null;
+                  const playerTeam = playerTeamId ? teamById.get(playerTeamId) : null;
+                  return (
+                    <Pressable
+                      key={player.id}
+                      onPress={() => updatePlayerDraft(player.id, { selected: !selected })}
+                      className={`mb-2 flex-row items-center rounded-lg border p-3 ${selected ? "border-primary bg-cardSecondary" : "border-cardSecondary bg-card"}`}
+                    >
+                      <View className="h-12 w-12 overflow-hidden rounded-lg bg-cardSecondary">
+                        {player.photo_url ? (
+                          <Image source={{ uri: player.photo_url }} style={{ width: 48, height: 48 }} contentFit="cover" cachePolicy="memory-disk" />
+                        ) : (
+                          <View className="h-full items-center justify-center">
+                            <UsersRound color={colors.muted} size={20} />
+                          </View>
+                        )}
+                      </View>
+                      <View className="ml-3 flex-1">
+                        <Text className="font-bold text-text" numberOfLines={1}>{player.name}</Text>
+                        <Text className="mt-1 text-xs text-textSecondary" numberOfLines={1}>{player.nickname || "Sem apelido"} - {player.position || "Jogador"}</Text>
+                        <Text className="mt-1 text-xs text-primary" numberOfLines={1}>{playerTeam?.name ?? "Sem time"}</Text>
+                      </View>
+                      <Text className={`font-black ${selected ? "text-primary" : "text-muted"}`}>{selected ? "Jogou" : "Fora"}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <Pressable onPress={() => setPlayersModalVisible(false)} className="mt-4 rounded-lg bg-primary py-4">
+                <Text className="text-center font-black text-background">Concluir</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
 
         {matches.isLoading ? <ListSkeleton /> : null}
         {(matches.data ?? []).map((match) => (

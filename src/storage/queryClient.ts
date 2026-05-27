@@ -6,7 +6,7 @@ import { safeAsyncStorage } from "@/storage/safeAsyncStorage";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: CACHE_TIME.twelveHours,
+      staleTime: CACHE_TIME.freshData,
       gcTime: CACHE_TIME.oneDay,
       retry: 1,
       refetchOnMount: true,

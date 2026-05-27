@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
+import { OrganizationSelector } from "@/components/OrganizationSelector";
 import { clearLocalCache } from "@/storage/cacheService";
 import { queryClient } from "@/storage/queryClient";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -30,6 +31,7 @@ export default function MaisScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 110 }}>
         <Header title="Mais" subtitle="Configuracoes, ajuda e sessao admin." />
+        <OrganizationSelector />
 
         <View className="mb-4 rounded-lg bg-card p-5">
           <Text className="text-lg font-black text-text">Economia Supabase</Text>
@@ -41,7 +43,7 @@ export default function MaisScreen() {
         <View className="mb-4 rounded-lg bg-card p-5">
           <Text className="text-lg font-black text-text">Ajuda</Text>
           <Text className="mt-2 text-sm leading-5 text-textSecondary">
-            Treinos apenas quinta e sabado. Sem realtime, sem polling e com consultas paginadas usando somente campos necessarios.
+            Cada organizacao tem jogadores, jogos e ranking proprios. Sem realtime, sem polling e com consultas paginadas usando somente campos necessarios.
           </Text>
         </View>
 

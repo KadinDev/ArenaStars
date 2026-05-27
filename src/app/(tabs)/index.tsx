@@ -2,19 +2,22 @@ import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { MatchCard } from "@/components/MatchCard";
+import { OrganizationSelector } from "@/components/OrganizationSelector";
 import { RankingItem } from "@/components/RankingItem";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ListSkeleton } from "@/components/Skeletons";
 import { supabaseConfigWarning } from "@/services/supabase";
+import { useOrganizationStore } from "@/stores/organizationStore";
 import { useMatches, usePlayers, useRanking } from "@/hooks/useCachedQueries";
-import { dayLabel, formatShortDate, nextTrainings } from "@/utils/date";
 
 export default function HomeScreen() {
   const players = usePlayers();
   const matches = useMatches(0);
   const ranking = useRanking("geral");
-  const trainings = nextTrainings(2);
+  const selectedOrganization = useOrganizationStore(
+    (state) => state.selectedOrganization,
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -22,10 +25,9 @@ export default function HomeScreen() {
         className="flex-1 px-5"
         contentContainerStyle={{ paddingBottom: 110 }}
       >
-        <Header
-          title="Nossa Pelada"
-          subtitle="Ranking leve, cacheado e sem consultas desnecessarias."
-        />
+        <Header title="Arena Stars" subtitle="Entre os melhores" />
+
+        <OrganizationSelector />
 
         {supabaseConfigWarning ? (
           <View className="mb-4 rounded-lg bg-cardSecondary p-4">
@@ -48,7 +50,7 @@ export default function HomeScreen() {
           Ranking rapido
         </Text>
         {ranking.isLoading ? <ListSkeleton count={3} /> : null}
-        {(ranking.data ?? []).slice(0, 3).map((item, index) => (
+        {(ranking.data ?? []).slice(0, 10).map((item, index) => (
           <RankingItem key={item.player_id} item={item} index={index} />
         ))}
         {!ranking.isLoading && !ranking.data?.length ? (
@@ -59,10 +61,12 @@ export default function HomeScreen() {
         ) : null}
 
         <Text className="mb-3 mt-6 text-lg font-black text-text">
-          Ultimo jogo
+          Ultimos jogos
         </Text>
-        {matches.data?.[0] ? (
-          <MatchCard match={matches.data[0]} />
+        {matches.data?.length ? (
+          matches.data
+            .slice(0, 3)
+            .map((match) => <MatchCard key={match.id} match={match} />)
         ) : (
           <EmptyState
             title="Nenhum jogo"

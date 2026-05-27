@@ -13,8 +13,7 @@ export default function SplashScreen() {
   useEffect(() => {
     scale.value = withRepeat(withSequence(withTiming(1.08, { duration: 650 }), withTiming(1, { duration: 650 })), -1, true);
     const timeout = setTimeout(() => {
-      queryClient.getQueryData(queryKeys.players);
-      queryClient.getQueryData(queryKeys.ranking("geral"));
+      queryClient.getQueryData(queryKeys.organizations);
       router.replace("/(tabs)");
     }, 950);
 

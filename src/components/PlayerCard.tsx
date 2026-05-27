@@ -39,10 +39,12 @@ export function PlayerCard({ player, onEdit }: PlayerCardProps) {
           </View>
           <View className="ml-3 flex-1">
             <Text className="text-base font-bold text-text" numberOfLines={1}>
-              {player.name || player.nickname}
+              {player.name}
             </Text>
             <Text className="mt-1 text-xs text-textSecondary" numberOfLines={1}>
-              {player.position || "Jogador"} - {player.nickname}
+              {player.jersey_number ? `#${player.jersey_number} - ` : ""}
+              {player.nickname ? `${player.nickname} - ` : ""}
+              {player.position || "Jogador"}
             </Text>
           </View>
         </TouchableOpacity>

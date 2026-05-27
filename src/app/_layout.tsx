@@ -15,8 +15,8 @@ export default function RootLayout() {
           client={queryClient}
           persistOptions={{
             persister: asyncStoragePersister,
-            maxAge: CACHE_TIME.twelveHours,
-            buster: "nossa-pelada-v1"
+            maxAge: CACHE_TIME.oneDay,
+            buster: "nossa-pelada-v2"
           }}
         >
           <StatusBar style="light" />

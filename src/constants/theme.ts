@@ -10,6 +10,6 @@ export const colors = {
 } as const;
 
 export const CACHE_TIME = {
-  twelveHours: 1000 * 60 * 60 * 12,
+  freshData: 1000 * 60 * 30,
   oneDay: 1000 * 60 * 60 * 24
 } as const;

@@ -13,19 +13,21 @@ export const supabaseConfigWarning = isValidSupabaseUrl(supabaseUrl)
   ? null
   : "EXPO_PUBLIC_SUPABASE_URL precisa ser uma URL https://*.supabase.co. O app abre com cache/local vazio ate a URL real ser configurada.";
 
-export const supabase: SupabaseClient<Database> | null = isValidSupabaseUrl(supabaseUrl)
+export const supabase: SupabaseClient<Database> | null = isValidSupabaseUrl(
+  supabaseUrl,
+)
   ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         storage: safeAsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false
+        detectSessionInUrl: false,
       },
       global: {
         headers: {
-          "x-client-info": "nossa-pelada-mobile"
-        }
-      }
+          "x-client-info": "nossa-pelada-mobile",
+        },
+      },
     })
   : null;
 

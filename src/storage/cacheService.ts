@@ -19,7 +19,7 @@ export async function readLocalCache<T>(key: string): Promise<T | null> {
 
   try {
     const envelope = JSON.parse(raw) as CacheEnvelope<T>;
-    if (Date.now() - envelope.savedAt > CACHE_TIME.twelveHours) return envelope.data;
+    if (Date.now() - envelope.savedAt > CACHE_TIME.freshData) return envelope.data;
     return envelope.data;
   } catch {
     return null;
